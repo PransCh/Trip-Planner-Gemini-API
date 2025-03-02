@@ -13,7 +13,7 @@ function PlacesToVisit({ trip }) {
               const dayDetails = trip.tripData.itinerary[dayKey];
               console.log(dayDetails);
 
-               const formattedDayKey = `Day ${dayKey.replace("day", "")}`;
+              const formattedDayKey = `Day ${dayKey.replace("day", "")}`;
               return (
                 <div key={index}>
                   <h2 className="font-semibold">{formattedDayKey}</h2>

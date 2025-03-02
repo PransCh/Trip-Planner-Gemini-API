@@ -14,7 +14,7 @@ function Viewtrip() {
     const [trip, setTrip] = useState([]);
 
     useEffect(()=>{
-        tripId&&GetTripData();
+        tripId && GetTripData();
     }, [tripId])
     const GetTripData=async()=>{
         const docRef =  doc(db,'AITrips', tripId);

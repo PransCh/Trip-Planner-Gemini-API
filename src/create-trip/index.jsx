@@ -14,26 +14,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import axios from "axios";
-
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "@/service/firebaseConfig";
-
 import { FcGoogle } from "react-icons/fc";
 import { useGoogleLogin } from "@react-oauth/google";
-import { useNavigate} from "react-router-dom";
-
+import { useNavigate } from "react-router-dom";
 
 function CreateTrip() {
-  const [place, setPlace] = useState();
   const [formData, setFormData] = useState({});
-  const [openDailog, setOpenDailog] = useState(false); 
-  const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
+  const [openDialog, setOpenDialog] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleInputChange = (name, value) => {
-    if(name=='noOfDays && value >= 7'){
-      console.log("Enter trip details less than 8");
-      return ;
+    if (name === "noOfDays" && value >= 7) {
+      toast("Trip duration must be less than 7 days.");
+      return;
     }
     setFormData((prevState) => ({ ...prevState, [name]: value }));
   };
@@ -48,64 +44,89 @@ function CreateTrip() {
   });
 
   const saveAiTrip = async (TripData) => {
-
     setLoading(true);
-    const user = JSON.parse(localStorage.getItem('user'));
-    const docId = Date.now().toString()
+    const user = JSON.parse(localStorage.getItem("user"));
+    const docId = Date.now().toString();
 
-    await setDoc(doc(db, "AITrips", docId), {
-      userSelection: formData,
-      tripData: JSON.parse(TripData),
-      userEmail: user?.email,
-      id: docId
-    });
-    setLoading(false);
-    navigate('/view-trip/'+docId)
-  }
+    try {
+      const parsedTripData = JSON.parse(TripData);
+      await setDoc(doc(db, "AITrips", docId), {
+        userSelection: formData,
+        tripData: parsedTripData,
+        userEmail: user?.email,
+        id: docId,
+      });
+      setLoading(false);
+      navigate("/view-trip/" + docId);
+    } catch (error) {
+      console.error("Failed to save trip:", error);
+      toast("Failed to save trip. Please try again.");
+      setLoading(false);
+    }
+  };
 
-  const onGenerateTrip=async()=>{
+  const onGenerateTrip = async () => {
+    const user = localStorage.getItem("user");
 
-    const user=localStorage.getItem('user');
-
-    if(!user)
-    {
-      setOpenDailog(true)
-      return ;
+    if (!user) {
+      setOpenDialog(true);
+      return;
     }
 
-    if(formData?.noOfDays >= 7 && !formData?.location || !formData?.noOfDays|| !formData?.noOfPeople || !formData?.budget) {
-      toast("Please fill all the details")
-      return ;
+    if (
+      !formData?.location?.label ||
+      !formData?.noOfDays ||
+      !formData?.noOfPeople ||
+      !formData?.budget
+    ) {
+      toast("Please fill all the details");
+      return;
     }
-    
-    toast("Trip created Successfully")
-    setLoading(true)
-    const FINAL_PROMPT = AI_PROMPT.replace('{location}',formData?.location?.label).replace('{totalDays}',formData?.noOfDays).replace('{noOfPeople}',formData?.noOfPeople).replace('{budget}',formData?.budget);
 
-    const result = await chatSession.sendMessage(FINAL_PROMPT)
+    toast("Generating trip...");
+    setLoading(true);
 
-    console.log(result?.response?.text())
-    setLoading(false)
-    saveAiTrip(result?.response?.text());
-  }
-const GetUserProfile = (access_token) => {
-  axios
-    .get("https://www.googleapis.com/oauth2/v3/userinfo", {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-        Accept: "Application/json",
-      },
-    })
-    .then((resp) => {
-      console.log("User Info:", resp.data); 
-      localStorage.setItem("user", JSON.stringify(resp.data)); 
-      setOpenDailog(false);
-      onGenerateTrip(); 
-      setUserInfo(resp.data); 
-    })
-};
+    const FINAL_PROMPT = AI_PROMPT.replace(
+      "{location}",
+      formData?.location?.label
+    )
+      .replace("{totalDays}", formData?.noOfDays)
+      .replace("{noOfPeople}", formData?.noOfPeople)
+      .replace("{budget}", formData?.budget);
 
+    try {
+      const result = await chatSession.sendMessage(FINAL_PROMPT);
+      const responseText = await result?.response?.text();
+      console.log("AI Response Text:", responseText);
+      saveAiTrip(responseText);
+    } catch (error) {
+      console.error("Failed to generate trip:", error);
+      toast("Failed to generate trip. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  const GetUserProfile = async (access_token) => {
+    try {
+      const resp = await axios.get(
+        "https://www.googleapis.com/oauth2/v3/userinfo",
+        {
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+            Accept: "Application/json",
+          },
+        }
+      );
+      console.log("User Info:", resp.data);
+      localStorage.setItem("user", JSON.stringify(resp.data));
+      setOpenDialog(false);
+      onGenerateTrip();
+    } catch (error) {
+      console.error("Failed to fetch user profile:", error);
+      toast("Failed to sign in. Please try again.");
+    }
+  };
 
   return (
     <div className="sm:px-10 md:px-32 lg:px-56 xl:px-10 mt-10">
@@ -124,13 +145,10 @@ const GetUserProfile = (access_token) => {
           <GooglePlacesAutocomplete
             apiKey={import.meta.env.VITE_GOOGLE_PLACE_API_KEY}
             selectProps={{
-              place,
-              onChange: (v) => {
-                setPlace(v);
-                handleInputChange("location", v);
-              },
+              onChange: (v) => handleInputChange("location", v),
+              placeholder: "Search for a location...",
             }}
-          ></GooglePlacesAutocomplete>
+          />
         </div>
         <div>
           <h2 className=" mt-5 text-xl font-medium">
@@ -192,7 +210,7 @@ const GetUserProfile = (access_token) => {
         </Button>
       </div>
 
-      <Dialog open={openDailog}>
+      <Dialog open={openDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogDescription>

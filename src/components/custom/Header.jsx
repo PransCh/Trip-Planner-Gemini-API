@@ -73,7 +73,8 @@ function Header() {
               <PopoverTrigger>
                 <img
                   src={user?.picture}
-                  className="h-[35px] w-[35px] rounded-full"
+                  className="h-[25px] w-[25px] rounded-full"
+                  onError={(e) => (e.target.src = "/userlogo.jpg")}
                 />
               </PopoverTrigger>
               <PopoverContent>
